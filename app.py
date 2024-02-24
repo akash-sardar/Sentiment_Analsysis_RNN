@@ -1,13 +1,20 @@
+#-------------------- Deployment Modules------------------------#
 import flask
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
+import joblib
 import jsonify
+import json
+#--------------------------------------------------------------#
 
+#-------------------- Data Modules-----------------------------#
 import numpy as np
 from string import punctuation
 import pandas as pd
 import re
 import inflect
+#--------------------------------------------------------------#
 
+#-------------------- NLP Modules------------------------------#
 import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords
@@ -23,30 +30,28 @@ nltk.download('tagsets')
 nltk.download('gutenberg')
 nltk.download('wordnet')
 
-import spacy
-sp = spacy.load('en_core_web_sm')
+#import spacy
+#sp = spacy.load('en_core_web_sm')
+#--------------------------------------------------------------#
 
-
+#-----------------Machine Learning Modules--------------------#
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
+#--------------------------------------------------------------#
 
-app = Flask(__name___
-@app.route('/predict', methods = ['GET'])
-
-
+app = Flask(__name__)
+@app.route('/predict', methods = ['POST'])
 def predict():
-
-
     class SentimentAnalysisLSTM(nn.Module):
         def __init__(self,vocab_length, embeddings_dim, n_hidden, n_layers, n_output, drop_p = 0.8):
             super().__init__()
             
             self.vocab_length = vocab_length
             self.n_layers = n_layers
-            self.n_hiden = n_hidden
+            self.n_hidden = n_hidden
             self.embeddings_dim = embeddings_dim
             self.n_output = n_output
             '''
@@ -89,7 +94,7 @@ def predict():
             
             lstm_out, h = self.lstm(embedded_words)
             lstm_out = self.dropout(lstm_out)
-            lstm_out = lstm_out.contiguous().view(-1, n_hidden)
+            lstm_out = lstm_out.contiguous().view(-1, self.n_hidden)
             fc_out = self.fc(lstm_out)
             sigmoid_out = self.sigmoid(fc_out)
             sigmoid_out = sigmoid_out.view(batch_size, -1)
@@ -116,8 +121,6 @@ def predict():
 
             
     def preprocess_review(review):
-		with open('models/word_to_index.json') as handle:
-			word_to_index = json.load(handle)    
         data = [[review,'X']]
         data_review = pd.DataFrame(data, columns = ['Review', 'Sentiment'])
         processed_input_review, _ = preprocessing_tokenize(data_review)
@@ -165,20 +168,25 @@ def predict():
                 padded_reviews.append(review)
         return padded_reviews        
 
-    request_json = request.get_json()
-    i = request_json['input']
+    request_json = request.get_json(force=True)
+    input_review = request_json['input']
     
     batch_size = 1
     
-    model = SentimentAnalysisLSTM(1954, 50, 100, 2, 1)
-    
-    model.load_state_dict(torch.load('C:\\Users\\akash\\flaskAPI\\models\S_A_LSTM.pkl')
+    model = SentimentAnalysisLSTM(vocab_length = 1954,embeddings_dim = 50, n_hidden = 100, n_layers = 2, n_output = 1)
+    model.load_state_dict(torch.load('C:\\Users\\akash\\flaskAPI\\models\S_A_LSTM.pkl'))
+    with open('C:\\Users\\akash\\flaskAPI\\models\\word_to_index.json') as handle:
+        word_to_index = json.load(handle)    
     model.eval()
-    preprocessed_review = preprocess_review(i)
+    preprocessed_review = preprocess_review(input_review)
     encoded_review = np.array([[ word_to_index[word] for word in sentence] for sentence in preprocessed_review])
     X_pred = torch.from_numpy(encoded_review)
     X_pred_loader = torch.utils.data.DataLoader(X_pred, batch_size = 1)
     for X in X_pred_loader:
-        output = sentiment_net(X)[0].item()
-	response = json.dumps({'response': output})
-	return response, 200
+        output = model(X)[0].item()
+    response = json.dumps({'response': output})
+    return response, 200
+    
+    
+if __name__ == '__main__':
+    app.run(port=5000, debug=True)
