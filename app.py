@@ -37,7 +37,7 @@ nltk.download('wordnet')
 #-----------------Machine Learning Modules--------------------#
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+#import torch.nn.functional as F
 import torch.optim as optim
 #from torch.autograd import Variable
 #--------------------------------------------------------------#
